@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Музыка</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+:root{
+  --bg:var(--tg-theme-bg-color,#fff);--text:var(--tg-theme-text-color,#111);
+  --hint:var(--tg-theme-hint-color,#8a8a8e);--accent:var(--tg-theme-button-color,#2481cc);
+  --accent-text:var(--tg-theme-button-text-color,#fff);--card:var(--tg-theme-secondary-bg-color,#f1f1f4);
+}
+*{box-sizing:border-box;margin:0;-webkit-tap-highlight-color:transparent}
+body{background:var(--bg);color:var(--text);font:16px/1.4 -apple-system,system-ui,"Segoe UI",Roboto,sans-serif;
+  padding-bottom:calc(250px + env(safe-area-inset-bottom));min-height:100vh}
+header{padding:16px 16px 8px}
+input{width:100%;padding:11px 14px;border:0;border-radius:12px;background:var(--card);color:var(--text);font-size:16px;outline:none}
+input:focus-visible{box-shadow:0 0 0 2px var(--accent)}
+ul{list-style:none;padding:4px 8px}
+li{display:flex;align-items:center;gap:12px;padding:8px;border-radius:12px;cursor:pointer}
+li:active{background:var(--card)}
+li.on{background:var(--card)}
+li.on .t{color:var(--accent)}
+.cover{flex:none;width:48px;height:48px;border-radius:10px;display:grid;place-items:center;color:#fff;font-weight:700;font-size:18px}
+.t{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.a{color:var(--hint);font-size:14px}
+.meta{min-width:0;flex:1}
+.empty{text-align:center;color:var(--hint);padding:40px 16px}
+#bar{position:fixed;left:0;right:0;bottom:0;background:var(--card);border-radius:20px 20px 0 0;
+  padding:16px 20px calc(16px + env(safe-area-inset-bottom));box-shadow:0 -4px 24px rgba(0,0,0,.12)}
+#now{display:flex;align-items:center;gap:14px;margin-bottom:12px}
+#now .cover{width:60px;height:60px;border-radius:14px;font-size:24px}
+input[type=range]{padding:0;height:24px;background:none;accent-color:var(--accent);cursor:pointer}
+.times{display:flex;justify-content:space-between;color:var(--hint);font-size:12px;font-variant-numeric:tabular-nums}
+.ctl{display:flex;justify-content:center;align-items:center;gap:22px;margin-top:6px}
+button{border:0;background:none;color:var(--text);cursor:pointer;padding:8px;border-radius:50%;display:grid;place-items:center}
+button:focus-visible{outline:2px solid var(--accent)}
+button svg{width:26px;height:26px;fill:currentColor}
+button.on{color:var(--accent)}
+#play{width:60px;height:60px;background:var(--accent);color:var(--accent-text)}
+#play svg{width:28px;height:28px}
+@media (prefers-reduced-motion:no-preference){button:active{transform:scale(.92)}}
+</style>
+</head>
+<body>
+<header><input id="q" type="search" placeholder="Поиск по трекам" autocomplete="off"></header>
+<ul id="list"></ul>
+
+<div id="bar">
+  <div id="now">
+    <div class="cover" id="cov">♪</div>
+    <div class="meta"><div class="t" id="ttl">Выберите трек</div><div class="a" id="art">—</div></div>
+  </div>
+  <input type="range" id="seek" min="0" max="100" value="0" step="0.1" aria-label="Перемотка">
+  <div class="times"><span id="cur">0:00</span><span id="dur">0:00</span></div>
+  <div class="ctl">
+    <button id="shuf" aria-label="Перемешать"><svg viewBox="0 0 24 24"><path d="M17 3l4 4-4 4V8h-3.6l-2.2 2.8-1.6-1.2L12.6 6H17V3zM3 7h4.6l7.2 9H17v-3l4 4-4 4v-3h-3.2L6.6 9H3V7zm0 10h3.6l1.7-2.1 1.6 1.2L7.6 19H3v-2z"/></svg></button>
+    <button id="prev" aria-label="Предыдущий"><svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6L18 18V6z"/></svg></button>
+    <button id="play" aria-label="Играть"><svg viewBox="0 0 24 24" id="ico"><path d="M8 5v14l11-7z"/></svg></button>
+    <button id="next" aria-label="Следующий"><svg viewBox="0 0 24 24"><path d="M16 6h2v12h-2zM6 18l8.5-6L6 6z"/></svg></button>
+    <button id="rep" aria-label="Повтор"><svg viewBox="0 0 24 24"><path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z"/></svg></button>
+  </div>
+</div>
+<audio id="au" preload="metadata"></audio>
+
+<script>
+// ====== ТВОИ ТРЕКИ: замени на свои (url — прямая https-ссылка на mp3) ======
+const TRACKS = [
+  {title:"SoundHelix Song 1", artist:"SoundHelix", url:"https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"},
+  {title:"SoundHelix Song 2", artist:"SoundHelix", url:"https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3"},
+  {title:"SoundHelix Song 3", artist:"SoundHelix", url:"https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3"},
+  {title:"SoundHelix Song 4", artist:"SoundHelix", url:"https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3"},
+  {title:"SoundHelix Song 5", artist:"SoundHelix", url:"https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3"},
+  {title:"SoundHelix Song 6", artist:"SoundHelix", url:"https://www.soundhelix.com/examples/mp3/SoundHelix-Song-6.mp3"},
+];
+// =========================================================================
+
+const tg = window.Telegram?.WebApp;
+if (tg){ tg.ready(); tg.expand(); }
+const $ = id => document.getElementById(id);
+const au = $("au");
+let view = TRACKS.map((_,i)=>i), cur = -1, shuffle = false, repeat = false;
+
+const hue = s => [...s].reduce((h,c)=>(h*31+c.charCodeAt(0))%360,7);
+const cover = (el,t) => { el.style.background = `linear-gradient(135deg,hsl(${hue(t.title)} 65% 55%),hsl(${(hue(t.title)+50)%360} 70% 40%))`; el.textContent = t.title[0]; };
+const fmt = s => isFinite(s) ? Math.floor(s/60)+":"+String(Math.floor(s%60)).padStart(2,"0") : "0:00";
+const haptic = () => tg?.HapticFeedback?.selectionChanged();
+
+function render(){
+  const ul = $("list"); ul.innerHTML = "";
+  if(!view.length){ ul.innerHTML = '<div class="empty">Ничего не найдено</div>'; return; }
+  view.forEach(i=>{
+    const t = TRACKS[i], li = document.createElement("li");
+    if(i===cur) li.className = "on";
+    li.innerHTML = '<div class="cover"></div><div class="meta"><div class="t"></div><div class="a"></div></div>';
+    cover(li.firstChild,t);
+    li.querySelector(".t").textContent = t.title;
+    li.querySelector(".a").textContent = t.artist;
+    li.onclick = () => { haptic(); load(i); };
+    ul.appendChild(li);
+  });
+}
+
+function load(i){
+  cur = i; const t = TRACKS[i];
+  au.src = t.url; au.play().catch(()=>{});
+  $("ttl").textContent = t.title; $("art").textContent = t.artist; cover($("cov"),t);
+  if("mediaSession" in navigator){
+    navigator.mediaSession.metadata = new MediaMetadata({title:t.title, artist:t.artist});
+  }
+  render();
+}
+
+function step(d){
+  if(!view.length) return;
+  if(cur<0) return load(view[0]);
+  if(shuffle && d>0){ return load(view[Math.floor(Math.random()*view.length)]); }
+  const p = view.indexOf(cur);
+  load(view[(p+d+view.length)%view.length]);
+}
+
+const toggle = () => { if(cur<0) return step(1); au.paused ? au.play() : au.pause(); };
+$("play").onclick = () => { haptic(); toggle(); };
+$("next").onclick = () => { haptic(); step(1); };
+$("prev").onclick = () => { haptic(); au.currentTime>3 ? au.currentTime=0 : step(-1); };
+$("shuf").onclick = e => { shuffle=!shuffle; e.currentTarget.classList.toggle("on",shuffle); };
+$("rep").onclick = e => { repeat=!repeat; e.currentTarget.classList.toggle("on",repeat); };
+
+au.onplay  = () => $("ico").innerHTML = '<path d="M6 5h4v14H6zm8 0h4v14h-4z"/>';
+au.onpause = () => $("ico").innerHTML = '<path d="M8 5v14l11-7z"/>';
+au.onended = () => repeat ? (au.currentTime=0, au.play()) : step(1);
+au.onloadedmetadata = () => $("dur").textContent = fmt(au.duration);
+au.ontimeupdate = () => {
+  $("cur").textContent = fmt(au.currentTime);
+  if(au.duration) $("seek").value = au.currentTime/au.duration*100;
+};
+$("seek").oninput = e => { if(au.duration) au.currentTime = e.target.value/100*au.duration; };
+
+$("q").oninput = e => {
+  const s = e.target.value.trim().toLowerCase();
+  view = TRACKS.map((_,i)=>i).filter(i => (TRACKS[i].title+" "+TRACKS[i].artist).toLowerCase().includes(s));
+  render();
+};
+
+if("mediaSession" in navigator){
+  navigator.mediaSession.setActionHandler("play", ()=>au.play());
+  navigator.mediaSession.setActionHandler("pause", ()=>au.pause());
+  navigator.mediaSession.setActionHandler("nexttrack", ()=>step(1));
+  navigator.mediaSession.setActionHandler("previoustrack", ()=>step(-1));
+}
+render();
+</script>
+</body>
+</html>
